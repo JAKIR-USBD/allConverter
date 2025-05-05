@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bi-Directional Converter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: purple;
+      color: lime;
+      padding: 30px;
+      font-style: italic;
+      font-weight: bold;
+    }
+    .converter {
+      max-width: 700px;
+      margin: auto;
+      background: aqua;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      font-style: italic;
+      font-weight: bold;
+    }
+    
+    input:hover, select:hover {
+  border: 4px solid #007BFF;
+  background-color: blue;
+      color: black;
+  transition: 0.3s ease;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border: 4px solid #0056b3;
+  background-color: violet;
+}
+
+.converter:hover {
+  box-shadow: 0 0 15px rgba(0, 123, 255, 0.3);
+  transition: box-shadow 0.3s ease;
+}
+    
+    
+    select, input {
+      width: 48%;
+      margin: 5px 1%;
+      padding: 10px;
+      font-size: 16px;
+      background-color: black;
+      color: red;
+      font-style: italic;
+      font-weight: bold;
+    }
+    .section {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    h1 {
+      text-align: center;
+    }
+    .history {
+      margin-top: 30px;
+      padding: 15px;
+      background: fuchsia;
+      color: blue;
+      border-radius: 8px;
+    }
+    .history-entry {
+      padding: 5px 0;
+      border-bottom: 1px solid #ddd;
+      font-size: 15px;
+    }
+    .history-entry:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Bi-Directional Unit Converter</h1>
+  <div class="converter">
+    <select id="converterType" onchange="populateUnits()">
+      <option value="temperature">Temperature</option>
+      <option value="time">Time</option>
+      <option value="length">Length</option>
+      <option value="weight">Weight</option>
+      <option value="volume">Volume</option>
+      <option value="area">Area</option>
+      <option value="currency">Currency (Live)</option>
+      <option value="crypto">Crypto (Live)</option>
+    </select>
+
+    <div class="section">
+      <input type="number" id="input1" placeholder="Value 1" oninput="convertFromInput(1)">
+      <input type="number" id="input2" placeholder="Value 2" oninput="convertFromInput(2)">
+    </div>
+    <div class="section">
+      <select id="unit1" onchange="convertFromInput(1)"></select>
+      <select id="unit2" onchange="convertFromInput(1)"></select>
+    </div>
+
+    <div class="history">
+      <h2>Conversion History (Last 10)</h2>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <script>
+    const units = {
+      temperature: ["Celsius", "Fahrenheit", "Kelvin"],
+      time: ["Seconds", "Minutes", "Hours", "Days"],
+      length: ["Meters", "Kilometers", "Miles", "Feet"],
+      weight: ["Kilograms", "Grams", "Pounds", "Ounces"],
+      volume: ["Liters", "Milliliters", "Gallons", "Cubic meters"],
+      area: ["Square meters", "Square kilometers", "Acres", "Hectares"],
+      currency: ["USD", "EUR", "INR", "GBP", "JPY"],
+      crypto: ["bitcoin", "ethereum", "dogecoin"]
+    };
+
+    let currencyRates = {};
+    let cryptoRates = {};
+    let history = [];
+
+    async function fetchRates() {
+      const currencyRes = await fetch("https://api.exchangerate.host/latest?base=USD");
+      const currencyData = await currencyRes.json();
+      currencyRates = currencyData.rates;
+
+      const cryptoRes = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,dogecoin&vs_currencies=usd");
+      const cryptoData = await cryptoRes.json();
+      cryptoRates = {
+        bitcoin: cryptoData.bitcoin.usd,
+        ethereum: cryptoData.ethereum.usd,
+        dogecoin: cryptoData.dogecoin.usd
+      };
+
+      convertFromInput(1);
+    }
+
+    function populateUnits() {
+      const type = document.getElementById("converterType").value;
+      const u1 = document.getElementById("unit1");
+      const u2 = document.getElementById("unit2");
+      u1.innerHTML = "";
+      u2.innerHTML = "";
+      units[type].forEach(unit => {
+        u1.innerHTML += `<option value="${unit}">${unit}</option>`;
+        u2.innerHTML += `<option value="${unit}">${unit}</option>`;
+      });
+      u2.selectedIndex = 1;
+      convertFromInput(1);
+    }
+
+    function convertFromInput(direction) {
+      const type = document.getElementById("converterType").value;
+      const fromInput = document.getElementById(direction === 1 ? "input1" : "input2");
+      const toInput = document.getElementById(direction === 1 ? "input2" : "input1");
+      const fromUnit = document.getElementById(direction === 1 ? "unit1" : "unit2").value;
+      const toUnit = document.getElementById(direction === 1 ? "unit2" : "unit1").value;
+
+      const val = parseFloat(fromInput.value);
+      if (isNaN(val)) {
+        toInput.value = "";
+        return;
+      }
+
+      let result = val;
+      const convertVal = (v, from, to, factors) => v * (factors[from] / factors[to]);
+
+      switch (type) {
+        case "temperature":
+          if (fromUnit === "Celsius") result = toUnit === "Fahrenheit" ? (val * 9/5) + 32 :
+                                 toUnit === "Kelvin" ? val + 273.15 : val;
+          else if (fromUnit === "Fahrenheit") result = toUnit === "Celsius" ? (val - 32) * 5/9 :
+                                         toUnit === "Kelvin" ? (val - 32) * 5/9 + 273.15 : val;
+          else if (fromUnit === "Kelvin") result = toUnit === "Celsius" ? val - 273.15 :
+                                     toUnit === "Fahrenheit" ? (val - 273.15) * 9/5 + 32 : val;
+          break;
+        case "time":
+          result = convertVal(val, fromUnit, toUnit, {Seconds: 1, Minutes: 60, Hours: 3600, Days: 86400});
+          break;
+        case "length":
+          result = convertVal(val, fromUnit, toUnit, {Meters: 1, Kilometers: 1000, Miles: 1609.34, Feet: 0.3048});
+          break;
+        case "weight":
+          result = convertVal(val, fromUnit, toUnit, {Kilograms: 1, Grams: 0.001, Pounds: 0.453592, Ounces: 0.0283495});
+          break;
+        case "volume":
+          result = convertVal(val, fromUnit, toUnit, {Liters: 1, Milliliters: 0.001, Gallons: 3.78541, "Cubic meters": 1000});
+          break;
+        case "area":
+          result = convertVal(val, fromUnit, toUnit, {"Square meters": 1, "Square kilometers": 1e6, Acres: 4046.86, Hectares: 10000});
+          break;
+        case "currency":
+          if (currencyRates[fromUnit] && currencyRates[toUnit]) {
+            result = val / currencyRates[fromUnit] * currencyRates[toUnit];
+          } else {
+            result = "";
+          }
+          break;
+        case "crypto":
+          if (cryptoRates[fromUnit] && cryptoRates[toUnit]) {
+            const fromUSD = val * cryptoRates[fromUnit];
+            result = fromUSD / cryptoRates[toUnit];
+          } else {
+            result = "";
+          }
+          break;
+      }
+
+      toInput.value = typeof result === "number" ? result.toFixed(4) : "";
+
+      addToHistory(`${val} ${fromUnit} → ${result.toFixed(4)} ${toUnit}`);
+    }
+
+    function addToHistory(entry) {
+      history.unshift(entry);
+      if (history.length > 10) history.pop();
+      updateHistoryDisplay();
+    }
+
+    function updateHistoryDisplay() {
+      const container = document.getElementById("historyList");
+      container.innerHTML = history.map(h => `<div class="history-entry">${h}</div>`).join("");
+    }
+
+    populateUnits();
+    fetchRates();
+  </script>
+</body>
+</html>
