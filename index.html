@@ -1,16 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <title>Bi-Directional Converter</title>
   <title>Bi-Directional Converter</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: purple;
+      background: gray;
       color: lime;
       padding: 30px;
       font-style: italic;
       font-weight: bold;
+     
+      
+       
     }
     .converter {
       max-width: 700px;
@@ -22,26 +26,21 @@
       font-style: italic;
       font-weight: bold;
     }
-    
     input:hover, select:hover {
-  border: 4px solid #007BFF;
-  background-color: blue;
+      border: 4px solid #007BFF;
+      background-color: blue;
       color: black;
-  transition: 0.3s ease;
-}
-
-input:focus, select:focus {
-  outline: none;
-  border: 4px solid #0056b3;
-  background-color: violet;
-}
-
-.converter:hover {
-  box-shadow: 0 0 15px rgba(0, 123, 255, 0.3);
-  transition: box-shadow 0.3s ease;
-}
-    
-    
+      transition: 0.3s ease;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border: 4px solid #0056b3;
+      background-color: violet;
+    }
+    .converter:hover {
+      box-shadow: 0 0 15px rgba(0, 123, 255, 0.3);
+      transition: box-shadow 0.3s ease;
+    }
     select, input {
       width: 48%;
       margin: 5px 1%;
@@ -53,12 +52,25 @@ input:focus, select:focus {
       font-weight: bold;
     }
     .section {
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(2, 350px);
+      grid-template-rows: repeat(2, 80px);
+      gap: 0.1px;
+      justify-content: space-evenly;
+      align-items: center;
+      flex-wrap: wrap-reverse;
     }
     h1 {
+      
       text-align: center;
+      text-decoration: wavy underline red;
+       text-decoration-thickness: 5px;
+    }
+    h2 {
+      color: blue;
+      text-align: center;
+      text-decoration: wavy underline white;
+      text-decoration-thickness: 5px;
     }
     .history {
       margin-top: 30px;
@@ -66,6 +78,7 @@ input:focus, select:focus {
       background: fuchsia;
       color: blue;
       border-radius: 8px;
+      
     }
     .history-entry {
       padding: 5px 0;
@@ -79,6 +92,8 @@ input:focus, select:focus {
 </head>
 <body>
   <h1>Bi-Directional Unit Converter</h1>
+  <h2>ALL CONVERTER IN ONE PLACE</h2>
+  
   <div class="converter">
     <select id="converterType" onchange="populateUnits()">
       <option value="temperature">Temperature</option>
@@ -92,16 +107,16 @@ input:focus, select:focus {
     </select>
 
     <div class="section">
-      <input type="number" id="input1" placeholder="Value 1" oninput="convertFromInput(1)">
-      <input type="number" id="input2" placeholder="Value 2" oninput="convertFromInput(2)">
+      <input type="number" id="input1" placeholder="Value 1" oninput="convertFromInput(1)" />
+      <select id="unit1" onchange="convertFromInput(1)"></select>
     </div>
     <div class="section">
-      <select id="unit1" onchange="convertFromInput(1)"></select>
+      <input type="number" id="input2" placeholder="Value 2" oninput="convertFromInput(2)" />
       <select id="unit2" onchange="convertFromInput(1)"></select>
     </div>
 
     <div class="history">
-      <h2>Conversion History (Last 10)</h2>
+      <h2>Temporary History List (LAST10)</h2>
       <div id="historyList"></div>
     </div>
   </div>
@@ -114,8 +129,20 @@ input:focus, select:focus {
       weight: ["Kilograms", "Grams", "Pounds", "Ounces"],
       volume: ["Liters", "Milliliters", "Gallons", "Cubic meters"],
       area: ["Square meters", "Square kilometers", "Acres", "Hectares"],
-      currency: ["USD", "EUR", "INR", "GBP", "JPY"],
-      crypto: ["bitcoin", "ethereum", "dogecoin"]
+      currency: ["USD", "EUR", "INR", "GBP", "JPY", "BDT", "CAD", "AUD", "CNY"],
+      crypto: [
+        "bitcoin",
+        "ethereum",
+        "dogecoin",
+        "tether",
+        "ripple",
+        "binancecoin",
+        "solana",
+        "usd-coin",
+        "tron",
+        "bitcoin-cash",
+        "usd"
+      ]
     };
 
     let currencyRates = {};
@@ -123,17 +150,27 @@ input:focus, select:focus {
     let history = [];
 
     async function fetchRates() {
-      const currencyRes = await fetch("https://api.exchangerate.host/latest?base=USD");
+      // fiat currency rates
+      const currencyRes = await fetch("https://api.exchangerate-api.com/v4/latest/USD");
       const currencyData = await currencyRes.json();
       currencyRates = currencyData.rates;
 
-      const cryptoRes = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,dogecoin&vs_currencies=usd");
+      // crypto rates from CoinGecko
+      const cryptoIds = units.crypto
+        .filter(id => id !== "usd")
+        .join(",");
+      const cryptoRes = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${cryptoIds}&vs_currencies=usd`
+      );
       const cryptoData = await cryptoRes.json();
-      cryptoRates = {
-        bitcoin: cryptoData.bitcoin.usd,
-        ethereum: cryptoData.ethereum.usd,
-        dogecoin: cryptoData.dogecoin.usd
-      };
+      // map to cryptoRates
+      units.crypto.forEach(id => {
+        if (id === "usd") {
+          cryptoRates[id] = 1; // USD as baseline
+        } else {
+          cryptoRates[id] = cryptoData[id]?.usd || 0;
+        }
+      });
 
       convertFromInput(1);
     }
@@ -145,8 +182,9 @@ input:focus, select:focus {
       u1.innerHTML = "";
       u2.innerHTML = "";
       units[type].forEach(unit => {
-        u1.innerHTML += `<option value="${unit}">${unit}</option>`;
-        u2.innerHTML += `<option value="${unit}">${unit}</option>`;
+        const label = unit.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+        u1.innerHTML += `<option value="${unit}">${label}</option>`;
+        u2.innerHTML += `<option value="${unit}">${label}</option>`;
       });
       u2.selectedIndex = 1;
       convertFromInput(1);
@@ -155,9 +193,9 @@ input:focus, select:focus {
     function convertFromInput(direction) {
       const type = document.getElementById("converterType").value;
       const fromInput = document.getElementById(direction === 1 ? "input1" : "input2");
-      const toInput = document.getElementById(direction === 1 ? "input2" : "input1");
-      const fromUnit = document.getElementById(direction === 1 ? "unit1" : "unit2").value;
-      const toUnit = document.getElementById(direction === 1 ? "unit2" : "unit1").value;
+      const toInput   = document.getElementById(direction === 1 ? "input2" : "input1");
+      const fromUnit  = document.getElementById(direction === 1 ? "unit1" : "unit2").value;
+      const toUnit    = document.getElementById(direction === 1 ? "unit2" : "unit1").value;
 
       const val = parseFloat(fromInput.value);
       if (isNaN(val)) {
@@ -170,48 +208,77 @@ input:focus, select:focus {
 
       switch (type) {
         case "temperature":
-          if (fromUnit === "Celsius") result = toUnit === "Fahrenheit" ? (val * 9/5) + 32 :
-                                 toUnit === "Kelvin" ? val + 273.15 : val;
-          else if (fromUnit === "Fahrenheit") result = toUnit === "Celsius" ? (val - 32) * 5/9 :
-                                         toUnit === "Kelvin" ? (val - 32) * 5/9 + 273.15 : val;
-          else if (fromUnit === "Kelvin") result = toUnit === "Celsius" ? val - 273.15 :
-                                     toUnit === "Fahrenheit" ? (val - 273.15) * 9/5 + 32 : val;
+          if (fromUnit === "Celsius") result = toUnit === "Fahrenheit"
+            ? val * 9/5 + 32
+            : toUnit === "Kelvin"
+            ? val + 273.15
+            : val;
+          else if (fromUnit === "Fahrenheit") result = toUnit === "Celsius"
+            ? (val - 32) * 5/9
+            : toUnit === "Kelvin"
+            ? (val - 32) * 5/9 + 273.15
+            : val;
+          else if (fromUnit === "Kelvin") result = toUnit === "Celsius"
+            ? val - 273.15
+            : toUnit === "Fahrenheit"
+            ? (val - 273.15) * 9/5 + 32
+            : val;
           break;
         case "time":
-          result = convertVal(val, fromUnit, toUnit, {Seconds: 1, Minutes: 60, Hours: 3600, Days: 86400});
+          result = convertVal(val, fromUnit, toUnit, {
+            Seconds: 1,
+            Minutes: 60,
+            Hours:   3600,
+            Days:    86400
+          });
           break;
         case "length":
-          result = convertVal(val, fromUnit, toUnit, {Meters: 1, Kilometers: 1000, Miles: 1609.34, Feet: 0.3048});
+          result = convertVal(val, fromUnit, toUnit, {
+            Meters:     1,
+            Kilometers: 1000,
+            Miles:      1609.34,
+            Feet:       0.3048
+          });
           break;
         case "weight":
-          result = convertVal(val, fromUnit, toUnit, {Kilograms: 1, Grams: 0.001, Pounds: 0.453592, Ounces: 0.0283495});
+          result = convertVal(val, fromUnit, toUnit, {
+            Kilograms: 1,
+            Grams:     0.001,
+            Pounds:    0.453592,
+            Ounces:    0.0283495
+          });
           break;
         case "volume":
-          result = convertVal(val, fromUnit, toUnit, {Liters: 1, Milliliters: 0.001, Gallons: 3.78541, "Cubic meters": 1000});
+          result = convertVal(val, fromUnit, toUnit, {
+            Liters:        1,
+            Milliliters:   0.001,
+            Gallons:       3.78541,
+            "Cubic meters": 1000
+          });
           break;
         case "area":
-          result = convertVal(val, fromUnit, toUnit, {"Square meters": 1, "Square kilometers": 1e6, Acres: 4046.86, Hectares: 10000});
+          result = convertVal(val, fromUnit, toUnit, {
+            "Square meters":     1,
+            "Square kilometers": 1e6,
+            Acres:               4046.86,
+            Hectares:            10000
+          });
           break;
         case "currency":
           if (currencyRates[fromUnit] && currencyRates[toUnit]) {
             result = val / currencyRates[fromUnit] * currencyRates[toUnit];
-          } else {
-            result = "";
-          }
+          } else result = "";
           break;
         case "crypto":
           if (cryptoRates[fromUnit] && cryptoRates[toUnit]) {
-            const fromUSD = val * cryptoRates[fromUnit];
-            result = fromUSD / cryptoRates[toUnit];
-          } else {
-            result = "";
-          }
+            const usdVal = val * cryptoRates[fromUnit];
+            result = usdVal / cryptoRates[toUnit];
+          } else result = "";
           break;
       }
 
-      toInput.value = typeof result === "number" ? result.toFixed(4) : "";
-
-      addToHistory(`${val} ${fromUnit} → ${result.toFixed(4)} ${toUnit}`);
+      toInput.value = typeof result === "number" ? result.toFixed(6) : "";
+      addToHistory(`${val} ${fromUnit} → ${result.toFixed(6)} ${toUnit}`);
     }
 
     function addToHistory(entry) {
@@ -222,9 +289,12 @@ input:focus, select:focus {
 
     function updateHistoryDisplay() {
       const container = document.getElementById("historyList");
-      container.innerHTML = history.map(h => `<div class="history-entry">${h}</div>`).join("");
+      container.innerHTML = history
+        .map(h => `<div class="history-entry">${h}</div>`)
+        .join("");
     }
 
+    // initialize
     populateUnits();
     fetchRates();
   </script>
